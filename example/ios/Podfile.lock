@@ -1,0 +1,29 @@
+PODS:
+  - Flutter (1.0.0)
+  - marfeel_sdk (0.1.0):
+    - Flutter
+    - MarfeelSDK-iOS (~> 2.18.7)
+  - MarfeelSDK-iOS (2.18.7)
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - marfeel_sdk (from `.symlinks/plugins/marfeel_sdk/ios`)
+
+SPEC REPOS:
+  trunk:
+    - MarfeelSDK-iOS
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  marfeel_sdk:
+    :path: ".symlinks/plugins/marfeel_sdk/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  marfeel_sdk: 6afa33004bb7a244460bbb5b67a1e526a3b0c4d3
+  MarfeelSDK-iOS: 8001391308619de1bff774b75c1ca2cc533aff4c
+
+PODFILE CHECKSUM: 251cb053df7158f337c0712f2ab29f4e0fa474ce
+
+COCOAPODS: 1.15.2

@@ -1,0 +1,35 @@
+group 'com.marfeel.flutter'
+version '1.0'
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.marfeel.flutter'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 23
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+    maven {
+        url "https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/"
+    }
+}
+
+dependencies {
+    implementation "com.marfeel.compass:views:1.16.6"
+}

@@ -16,8 +16,21 @@ import com.marfeel.compass.core.model.compass.UserType
 import com.marfeel.compass.core.model.multimedia.Event
 import com.marfeel.compass.core.model.multimedia.MultimediaMetadata
 import com.marfeel.compass.core.model.multimedia.Type
+import com.marfeel.compass.experiences.Experiences
+import com.marfeel.compass.experiences.Recirculation
+import com.marfeel.compass.experiences.model.Experience
+import com.marfeel.compass.experiences.model.ExperienceContentType
+import com.marfeel.compass.experiences.model.ExperienceFamily
+import com.marfeel.compass.experiences.model.ExperienceType
+import com.marfeel.compass.experiences.model.RecirculationLink
 import com.marfeel.compass.tracker.CompassTracking
 import com.marfeel.compass.tracker.multimedia.MultimediaTracking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -31,6 +44,10 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private var binding: FlutterPlugin.FlutterPluginBinding? = null
     private var activityBinding: ActivityPluginBinding? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val pluginScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val experienceCache = mutableMapOf<String, Experience>()
+    private val cacheLock = Any()
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         this.binding = binding
@@ -40,6 +57,7 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        pluginScope.cancel()
         this.binding = null
     }
 
@@ -400,8 +418,286 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "recirculation.trackEligible" -> {
+                val name = call.argument<String>("name")!!
+                val links = parseLinks(call.argument("links"))
+                mainHandler.post {
+                    try {
+                        Recirculation.getInstance().trackEligible(name, links)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "recirculation.trackImpression" -> {
+                val name = call.argument<String>("name")!!
+                val links = parseLinks(call.argument("links"))
+                mainHandler.post {
+                    try {
+                        Recirculation.getInstance().trackImpression(name, links)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "recirculation.trackImpressionLink" -> {
+                val name = call.argument<String>("name")!!
+                val link = parseLink(call.argument("link")!!)
+                mainHandler.post {
+                    try {
+                        Recirculation.getInstance().trackImpression(name, link)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "recirculation.trackClick" -> {
+                val name = call.argument<String>("name")!!
+                val link = parseLink(call.argument("link")!!)
+                mainHandler.post {
+                    try {
+                        Recirculation.getInstance().trackClick(name, link)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.addTargeting" -> {
+                val key = call.argument<String>("key")!!
+                val value = call.argument<String>("value")!!
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().addTargeting(key, value)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.fetch" -> {
+                val filterByType = call.argument<String>("filterByType")?.let { ExperienceType.fromKey(it) }
+                val filterByFamily = call.argument<String>("filterByFamily")?.let { ExperienceFamily.fromKey(it) }
+                val resolve = call.argument<Boolean>("resolve") ?: false
+                val url = call.argument<String>("url")
+                pluginScope.launch {
+                    try {
+                        val exps = Experiences.getInstance().fetchExperiences(
+                            filterByType, filterByFamily, resolve, url
+                        )
+                        synchronized(cacheLock) {
+                            experienceCache.clear()
+                            exps.forEach { experienceCache[it.id] = it }
+                        }
+                        val payload = exps.map(::encodeExperience)
+                        withContext(Dispatchers.Main) { result.success(payload) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "experiences.fetch error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "experiences.trackEligible" -> {
+                val id = call.argument<String>("experienceId")!!
+                val name = call.argument<String>("experienceName")!!
+                val links = parseLinks(call.argument("links"))
+                val exp = lookupExperience(id) ?: stubExperience(id, name)
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().trackEligible(exp, links)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.trackImpression" -> {
+                val id = call.argument<String>("experienceId")!!
+                val name = call.argument<String>("experienceName")!!
+                val links = parseLinks(call.argument("links"))
+                val exp = lookupExperience(id) ?: stubExperience(id, name)
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().trackImpression(exp, links)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.trackImpressionLink" -> {
+                val id = call.argument<String>("experienceId")!!
+                val name = call.argument<String>("experienceName")!!
+                val link = parseLink(call.argument("link")!!)
+                val exp = lookupExperience(id) ?: stubExperience(id, name)
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().trackImpression(exp, link)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.trackClick" -> {
+                val id = call.argument<String>("experienceId")!!
+                val name = call.argument<String>("experienceName")!!
+                val link = parseLink(call.argument("link")!!)
+                val exp = lookupExperience(id) ?: stubExperience(id, name)
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().trackClick(exp, link)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.trackClose" -> {
+                val id = call.argument<String>("experienceId")!!
+                val exp = lookupExperience(id) ?: stubExperience(id, id)
+                mainHandler.post {
+                    try {
+                        Experiences.getInstance().trackClose(exp)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "experiences.resolve" -> {
+                val id = call.argument<String>("experienceId")!!
+                val exp = lookupExperience(id)
+                if (exp == null) {
+                    result.success(null)
+                } else {
+                    pluginScope.launch {
+                        try {
+                            val content = exp.resolve()
+                            withContext(Dispatchers.Main) { result.success(content) }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "experiences.resolve error: ${e.message}", e)
+                            withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                        }
+                    }
+                }
+            }
+
+            "experiences.clearFrequencyCaps" -> {
+                mainHandler.post {
+                    Experiences.getInstance().clearFrequencyCaps()
+                    result.success(null)
+                }
+            }
+
+            "experiences.getFrequencyCapCounts" -> {
+                val id = call.argument<String>("experienceId")!!
+                mainHandler.post {
+                    result.success(Experiences.getInstance().getFrequencyCapCounts(id))
+                }
+            }
+
+            "experiences.getFrequencyCapConfig" -> {
+                mainHandler.post {
+                    result.success(Experiences.getInstance().getFrequencyCapConfig())
+                }
+            }
+
+            "experiences.clearReadEditorials" -> {
+                mainHandler.post {
+                    Experiences.getInstance().clearReadEditorials()
+                    result.success(null)
+                }
+            }
+
+            "experiences.getReadEditorials" -> {
+                mainHandler.post {
+                    result.success(Experiences.getInstance().getReadEditorials())
+                }
+            }
+
+            "experiences.getExperimentAssignments" -> {
+                mainHandler.post {
+                    result.success(Experiences.getInstance().getExperimentAssignments())
+                }
+            }
+
+            "experiences.setExperimentAssignment" -> {
+                val groupId = call.argument<String>("groupId")!!
+                val variantId = call.argument<String>("variantId")!!
+                mainHandler.post {
+                    Experiences.getInstance().setExperimentAssignment(groupId, variantId)
+                    result.success(null)
+                }
+            }
+
+            "experiences.clearExperimentAssignments" -> {
+                mainHandler.post {
+                    Experiences.getInstance().clearExperimentAssignments()
+                    result.success(null)
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
 
+    private fun lookupExperience(id: String): Experience? = synchronized(cacheLock) {
+        experienceCache[id]
+    }
+
+    private fun parseLink(m: Map<String, Any>): RecirculationLink =
+        RecirculationLink(
+            url = m["url"] as String,
+            position = (m["position"] as Number).toInt()
+        )
+
+    private fun parseLinks(list: List<Map<String, Any>>?): List<RecirculationLink> =
+        list?.map(::parseLink) ?: emptyList()
+
+    private fun stubExperience(id: String, name: String): Experience =
+        Experience(
+            id = id,
+            name = name,
+            type = ExperienceType.UNKNOWN,
+            placement = null,
+            contentUrl = null,
+            contentType = ExperienceContentType.UNKNOWN,
+            features = null,
+            strategy = null,
+            selectors = null,
+            filters = null,
+            rawJson = emptyMap(),
+            family = null,
+        )
+
+    private fun encodeExperience(e: Experience): Map<String, Any?> = mapOf(
+        "id" to e.id,
+        "name" to e.name,
+        "type" to e.type.key,
+        "family" to e.family?.key,
+        "placement" to e.placement,
+        "contentUrl" to e.contentUrl,
+        "contentType" to e.contentType.key,
+        "features" to e.features,
+        "strategy" to e.strategy,
+        "selectors" to e.selectors?.map { mapOf("selector" to it.selector, "strategy" to it.strategy) },
+        "filters" to e.filters?.map { mapOf("key" to it.key, "operator" to it.operator, "values" to it.values) },
+        "rawJson" to e.rawJson,
+        "resolvedContent" to e.resolvedContent,
+    )
 }

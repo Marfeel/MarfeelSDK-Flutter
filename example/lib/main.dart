@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:marfeel_sdk/marfeel_sdk.dart';
 
 import 'screens/article_screen.dart';
+import 'screens/experiences_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/video_screen.dart';
@@ -48,7 +49,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final _screens = const [HomeScreen(), VideoScreen(), SettingsScreen()];
+  final _screens = const [
+    HomeScreen(),
+    VideoScreen(),
+    ExperiencesScreen(),
+    SettingsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +67,8 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(
               icon: Icon(Icons.video_library), label: 'Video'),
+          NavigationDestination(
+              icon: Icon(Icons.science), label: 'Experiences'),
           NavigationDestination(
               icon: Icon(Icons.settings), label: 'Settings'),
         ],

@@ -3,6 +3,9 @@ import UIKit
 import MarfeelSDK_iOS
 
 public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
+    private var experienceCache: [String: Experience] = [:]
+    private let cacheLock = NSLock()
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "com.marfeel.sdk/compass", binaryMessenger: registrar.messenger())
         let instance = MarfeelSdkPlugin()
@@ -231,8 +234,197 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             CompassTrackerMultimedia.shared.registerEvent(id: id, event: mediaEvent, eventTime: eventTime)
             result(nil)
 
+        case "recirculation.trackEligible":
+            let name = args?["name"] as? String ?? ""
+            let links = parseLinks(args?["links"])
+            Recirculation.shared.trackEligible(name: name, links: links)
+            result(nil)
+
+        case "recirculation.trackImpression":
+            let name = args?["name"] as? String ?? ""
+            let links = parseLinks(args?["links"])
+            Recirculation.shared.trackImpression(name: name, links: links)
+            result(nil)
+
+        case "recirculation.trackImpressionLink":
+            let name = args?["name"] as? String ?? ""
+            let link = parseLink(args?["link"])
+            Recirculation.shared.trackImpression(name: name, link: link)
+            result(nil)
+
+        case "recirculation.trackClick":
+            let name = args?["name"] as? String ?? ""
+            let link = parseLink(args?["link"])
+            Recirculation.shared.trackClick(name: name, link: link)
+            result(nil)
+
+        case "experiences.addTargeting":
+            let key = args?["key"] as? String ?? ""
+            let value = args?["value"] as? String ?? ""
+            Experiences.shared.addTargeting(key: key, value: value)
+            result(nil)
+
+        case "experiences.fetch":
+            let filterByType = (args?["filterByType"] as? String).flatMap { ExperienceType(rawValue: $0) }
+            let filterByFamily = (args?["filterByFamily"] as? String).flatMap { ExperienceFamily(rawValue: $0) }
+            let resolve = args?["resolve"] as? Bool ?? false
+            let url = args?["url"] as? String
+            Experiences.shared.fetchExperiences(
+                filterByType: filterByType,
+                filterByFamily: filterByFamily,
+                resolve: resolve,
+                url: url
+            ) { [weak self] experiences in
+                guard let self = self else {
+                    result([])
+                    return
+                }
+                self.cacheLock.lock()
+                self.experienceCache.removeAll()
+                for exp in experiences {
+                    self.experienceCache[exp.id] = exp
+                }
+                self.cacheLock.unlock()
+                let payload = experiences.map { Self.encodeExperience($0) }
+                result(payload)
+            }
+
+        case "experiences.trackEligible":
+            let id = args?["experienceId"] as? String ?? ""
+            let name = args?["experienceName"] as? String ?? ""
+            let links = parseLinks(args?["links"])
+            if let exp = lookupExperience(id: id) {
+                Experiences.shared.trackEligible(experience: exp, links: links)
+            } else {
+                Recirculation.shared.trackEligible(name: name, links: links)
+            }
+            result(nil)
+
+        case "experiences.trackImpression":
+            let id = args?["experienceId"] as? String ?? ""
+            let name = args?["experienceName"] as? String ?? ""
+            let links = parseLinks(args?["links"])
+            if let exp = lookupExperience(id: id) {
+                Experiences.shared.trackImpression(experience: exp, links: links)
+            } else {
+                Recirculation.shared.trackImpression(name: name, links: links)
+            }
+            result(nil)
+
+        case "experiences.trackImpressionLink":
+            let id = args?["experienceId"] as? String ?? ""
+            let name = args?["experienceName"] as? String ?? ""
+            let link = parseLink(args?["link"])
+            if let exp = lookupExperience(id: id) {
+                Experiences.shared.trackImpression(experience: exp, link: link)
+            } else {
+                Recirculation.shared.trackImpression(name: name, link: link)
+            }
+            result(nil)
+
+        case "experiences.trackClick":
+            let id = args?["experienceId"] as? String ?? ""
+            let name = args?["experienceName"] as? String ?? ""
+            let link = parseLink(args?["link"])
+            if let exp = lookupExperience(id: id) {
+                Experiences.shared.trackClick(experience: exp, link: link)
+            } else {
+                Recirculation.shared.trackClick(name: name, link: link)
+            }
+            result(nil)
+
+        case "experiences.trackClose":
+            let id = args?["experienceId"] as? String ?? ""
+            if let exp = lookupExperience(id: id) {
+                Experiences.shared.trackClose(experience: exp)
+            }
+            result(nil)
+
+        case "experiences.resolve":
+            let id = args?["experienceId"] as? String ?? ""
+            guard let exp = lookupExperience(id: id) else {
+                result(nil)
+                return
+            }
+            exp.resolve { content in
+                result(content)
+            }
+
+        case "experiences.clearFrequencyCaps":
+            Experiences.shared.clearFrequencyCaps()
+            result(nil)
+
+        case "experiences.getFrequencyCapCounts":
+            let id = args?["experienceId"] as? String ?? ""
+            result(Experiences.shared.getFrequencyCapCounts(experienceId: id))
+
+        case "experiences.getFrequencyCapConfig":
+            result(Experiences.shared.getFrequencyCapConfig())
+
+        case "experiences.clearReadEditorials":
+            Experiences.shared.clearReadEditorials()
+            result(nil)
+
+        case "experiences.getReadEditorials":
+            result(Experiences.shared.getReadEditorials())
+
+        case "experiences.getExperimentAssignments":
+            result(Experiences.shared.getExperimentAssignments())
+
+        case "experiences.setExperimentAssignment":
+            let groupId = args?["groupId"] as? String ?? ""
+            let variantId = args?["variantId"] as? String ?? ""
+            Experiences.shared.setExperimentAssignment(groupId: groupId, variantId: variantId)
+            result(nil)
+
+        case "experiences.clearExperimentAssignments":
+            Experiences.shared.clearExperimentAssignments()
+            result(nil)
+
         default:
             result(FlutterMethodNotImplemented)
         }
+    }
+
+    private func lookupExperience(id: String) -> Experience? {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return experienceCache[id]
+    }
+
+    private func parseLink(_ raw: Any?) -> RecirculationLink {
+        let m = raw as? [String: Any] ?? [:]
+        return RecirculationLink(
+            url: m["url"] as? String ?? "",
+            position: m["position"] as? Int ?? 0
+        )
+    }
+
+    private func parseLinks(_ raw: Any?) -> [RecirculationLink] {
+        let arr = raw as? [[String: Any]] ?? []
+        return arr.map {
+            RecirculationLink(
+                url: $0["url"] as? String ?? "",
+                position: $0["position"] as? Int ?? 0
+            )
+        }
+    }
+
+    private static func encodeExperience(_ e: Experience) -> [String: Any?] {
+        return [
+            "id": e.id,
+            "name": e.name,
+            "type": e.type.rawValue,
+            "family": e.family?.rawValue,
+            "placement": e.placement,
+            "contentUrl": e.contentUrl,
+            "contentType": e.contentType.rawValue,
+            "features": e.features,
+            "strategy": e.strategy,
+            "selectors": e.selectors?.map { ["selector": $0.selector, "strategy": $0.strategy] as [String: Any] },
+            "filters": e.filters?.map { ["key": $0.key, "operator": $0.`operator`.key, "values": $0.values] as [String: Any] },
+            "rawJson": e.rawJson,
+            "resolvedContent": e.resolvedContent,
+        ]
     }
 }

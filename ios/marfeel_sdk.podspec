@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'marfeel_sdk'
-  s.version          = '0.1.0'
+  s.version          = '0.1.1'
   s.summary          = 'Flutter plugin for Marfeel Compass analytics SDK'
   s.homepage         = 'https://github.com/Marfeel/MarfeelSDK-Flutter'
   s.license          = { :type => 'MIT' }

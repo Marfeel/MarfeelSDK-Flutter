@@ -1,3 +1,7 @@
+## 0.1.1
+
+- iOS: `trackConversion` now also sets a `ios-trackConversion` page var with value `"<conversion>:<id>"` for internal diagnostics of duplicated conversion calls.
+
 ## 0.1.0
 
 - Initial release.

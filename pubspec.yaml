@@ -1,6 +1,6 @@
 name: marfeel_sdk
 description: Flutter plugin for the Marfeel Compass analytics SDK. Track page views, scroll depth, multimedia events, conversions, and user engagement.
-version: 0.1.0
+version: 0.1.1
 homepage: https://www.marfeel.com
 repository: https://github.com/Marfeel/MarfeelSDK-Flutter
 issue_tracker: https://github.com/Marfeel/MarfeelSDK-Flutter/issues

@@ -9,6 +9,6 @@ Pod::Spec.new do |s|
   s.source_files     = 'Classes/**/*'
   s.platforms        = { :ios => '13.0' }
   s.dependency 'Flutter'
-  s.dependency 'MarfeelSDK-iOS', '~> 2.18.7'
+  s.dependency 'MarfeelSDK-iOS', '~> 2.18.9'
   s.swift_version    = '5.0'
 end

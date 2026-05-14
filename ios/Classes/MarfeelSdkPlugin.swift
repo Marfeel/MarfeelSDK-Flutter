@@ -151,6 +151,8 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             default: conversionScope = nil
             }
 
+            CompassTracker.shared.setPageVar(name: "ios-trackConversion", value: "\(conversion):\(id ?? "")")
+
             if initiator == nil && id == nil && value == nil && meta == nil && conversionScope == nil {
                 CompassTracker.shared.trackConversion(conversion: conversion)
             } else {

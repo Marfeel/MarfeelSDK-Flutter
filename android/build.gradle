@@ -31,6 +31,6 @@ repositories {
 }
 
 dependencies {
-    implementation "com.marfeel.compass:views:1.16.6"
+    implementation "com.marfeel.compass:views:1.17.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
 }

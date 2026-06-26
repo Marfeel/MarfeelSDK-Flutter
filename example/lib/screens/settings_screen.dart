@@ -15,6 +15,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _userVarNameController = TextEditingController();
   final _userVarValueController = TextEditingController();
   final _segmentController = TextEditingController();
+  final _cdpSegmentController = TextEditingController();
+  final _meterController = TextEditingController();
   String _resultText = '';
   bool _consent = true;
 
@@ -26,6 +28,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _userVarNameController.dispose();
     _userVarValueController.dispose();
     _segmentController.dispose();
+    _cdpSegmentController.dispose();
+    _meterController.dispose();
     super.dispose();
   }
 
@@ -183,6 +187,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () => CompassTracking.setUserSegments(
                     ['tech', 'media', 'finance']),
                 child: const Text('Set Batch'),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _sectionTitle('CDP — Identity & Data'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: () => Cdp.cdpDoIdentityLink(
+                    'registered_user_id', _userIdController.text,
+                    isDeterministic: true),
+                child: const Text('Link Identity'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final id = await Cdp.getCdpMasterId();
+                  _showResult('CDP master_id: ${id ?? 'null'}');
+                },
+                child: const Text('Get master_id'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final data = await Cdp.getCdpData();
+                  _showResult('CDP data: masterId=${data.masterId}, '
+                      'rfv=${data.rfv?.rfv}, cohorts=${data.cohorts}');
+                },
+                child: const Text('Get CDP Data'),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _sectionTitle('CDP — Segments'),
+          TextField(
+              controller: _cdpSegmentController,
+              decoration: const InputDecoration(hintText: 'CDP segment name')),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: () =>
+                    Cdp.addCdpSegment(_cdpSegmentController.text),
+                child: const Text('Add'),
+              ),
+              ElevatedButton(
+                onPressed: () =>
+                    Cdp.removeCdpSegment(_cdpSegmentController.text),
+                child: const Text('Remove'),
+              ),
+              ElevatedButton(
+                onPressed: () =>
+                    Cdp.setCdpSegments(['sports_fan', 'subscriber']),
+                child: const Text('Set Batch'),
+              ),
+              ElevatedButton(
+                onPressed: () => Cdp.clearCdpSegments(),
+                child: const Text('Clear All'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final segments = await Cdp.getCdpSegments();
+                  _showResult('CDP segments: $segments');
+                },
+                child: const Text('Get'),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _sectionTitle('CDP — Meters'),
+          TextField(
+              controller: _meterController,
+              decoration: const InputDecoration(hintText: 'Meter name')),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  final meters = await Cdp.getMeterSnapshot();
+                  _showResult('Meters: '
+                      '${meters.map((m) => '${m.name}=${m.count}/${m.threshold}').join(', ')}');
+                },
+                child: const Text('Snapshot'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final m = await Cdp.getMeter(_meterController.text);
+                  _showResult(m != null
+                      ? '${m.name}: ${m.count}/${m.threshold} '
+                          '(reached=${m.reached})'
+                      : 'Meter not found in mirror');
+                },
+                child: const Text('Get'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final m = await Cdp.incrementMeter(_meterController.text);
+                    _showResult(m != null
+                        ? 'Incremented ${m.name} -> ${m.count}'
+                        : 'Increment no-op (not ready)');
+                  } on MeterNotFoundError catch (e) {
+                    _showResult('Meter "${e.meterName}" not configured');
+                  }
+                },
+                child: const Text('Increment'),
               ),
             ],
           ),

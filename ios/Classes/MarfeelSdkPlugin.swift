@@ -19,10 +19,11 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
         case "initialize":
             let accountId = args?["accountId"] as? String ?? ""
             let accountIdInt = Int(accountId) ?? 0
+            let enableCdp = args?["enableCdp"] as? Bool ?? false
             if let pageTechnology = args?["pageTechnology"] as? Int {
-                CompassTracker.initialize(accountId: accountIdInt, pageTechnology: pageTechnology)
+                CompassTracker.initialize(accountId: accountIdInt, pageTechnology: pageTechnology, enableCdp: enableCdp)
             } else {
-                CompassTracker.initialize(accountId: accountIdInt)
+                CompassTracker.initialize(accountId: accountIdInt, enableCdp: enableCdp)
             }
             result(nil)
 
@@ -383,9 +384,111 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             Experiences.shared.clearExperimentAssignments()
             result(nil)
 
+        case "cdp.doIdentityLink":
+            let type = args?["type"] as? String ?? ""
+            let value = args?["value"] as? String ?? ""
+            let isDeterministic = args?["isDeterministic"] as? Bool ?? false
+            Cdp.shared.cdpDoIdentityLink(type: type, value: value, isDeterministic: isDeterministic)
+            result(nil)
+
+        case "cdp.getData":
+            result(Self.encodeCdpData(Cdp.shared.getCdpData()))
+
+        case "cdp.getMasterId":
+            result(Cdp.shared.getCdpMasterId())
+
+        case "cdp.addSegment":
+            let segment = args?["segment"] as? String ?? ""
+            Cdp.shared.addCdpSegment(segment)
+            result(nil)
+
+        case "cdp.removeSegment":
+            let segment = args?["segment"] as? String ?? ""
+            Cdp.shared.removeCdpSegment(segment)
+            result(nil)
+
+        case "cdp.setSegments":
+            let segments = args?["segments"] as? [String] ?? []
+            Cdp.shared.setCdpSegments(segments)
+            result(nil)
+
+        case "cdp.clearSegments":
+            Cdp.shared.clearCdpSegments()
+            result(nil)
+
+        case "cdp.getSegments":
+            result(Cdp.shared.getCdpSegments())
+
+        case "cdp.getMeterSnapshot":
+            Cdp.shared.getMeterSnapshot { meters in
+                let payload = meters.map { Self.encodeMeter($0) }
+                DispatchQueue.main.async { result(payload) }
+            }
+
+        case "cdp.getMeter":
+            let name = args?["name"] as? String ?? ""
+            if let meter = Cdp.shared.getMeter(name) {
+                result(Self.encodeMeter(meter))
+            } else {
+                result(nil)
+            }
+
+        case "cdp.listMeters":
+            result(Cdp.shared.listMeters().map { Self.encodeMeter($0) })
+
+        case "cdp.incrementMeter":
+            let name = args?["name"] as? String ?? ""
+            Cdp.shared.incrementMeter(name) { outcome in
+                DispatchQueue.main.async {
+                    switch outcome {
+                    case .success(let meter):
+                        result(meter.map { Self.encodeMeter($0) })
+                    case .failure(let error):
+                        if let notFound = error as? MeterNotFoundError {
+                            result(FlutterError(code: "METER_NOT_FOUND", message: "meter_not_found: \(notFound.meterName)", details: notFound.meterName))
+                        } else {
+                            result(FlutterError(code: "ERROR", message: error.localizedDescription, details: nil))
+                        }
+                    }
+                }
+            }
+
         default:
             result(FlutterMethodNotImplemented)
         }
+    }
+
+    private static func encodeCdpData(_ data: CdpData) -> [String: Any?] {
+        var rfv: [String: Any]?
+        if let r = data.rfv {
+            rfv = ["rfv": r.rfv, "r": r.r, "f": r.f, "v": r.v]
+        }
+        return [
+            "masterId": data.masterId,
+            "rfv": rfv,
+            "cohorts": data.cohorts,
+        ]
+    }
+
+    private static func encodeMeter(_ meter: MeterState) -> [String: Any?] {
+        func millis(_ date: Date?) -> Int? {
+            guard let date = date else { return nil }
+            return Int(date.timeIntervalSince1970 * 1000)
+        }
+        return [
+            "name": meter.name,
+            "count": meter.count,
+            "threshold": meter.threshold,
+            "reached": meter.reached,
+            "remaining": meter.remaining,
+            "startedAt": millis(meter.startedAt),
+            "expiresAt": millis(meter.expiresAt),
+            "window": [
+                "duration": meter.window.duration,
+                "period": meter.window.period,
+                "tz": meter.window.tz,
+            ],
+        ]
     }
 
     private func lookupExperience(id: String) -> Experience? {

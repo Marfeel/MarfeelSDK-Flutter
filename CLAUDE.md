@@ -32,6 +32,8 @@ The plugin uses Flutter's **MethodChannel** (`com.marfeel.sdk/compass`) for Dart
 - `src/multimedia_tracking.dart` — video/audio tracking (initializeItem, registerEvent)
 - `src/compass_scroll_view.dart` — widget wrapping `SingleChildScrollView` that automatically reports scroll percentage via `CompassTracking.updateScrollPercentage`
 - `src/types.dart` — enums and data classes (UserType, ConversionScope, MultimediaType, MultimediaEvent, ConversionOptions, MultimediaMetadata, RFV)
+- `src/cdp/cdp.dart` — `Cdp` facade: CDP identity link, master_id, segments (`addCdpSegment`/`setCdpSegments`/…), and meters. Gated by `initialize(enableCdp: true)` + consent on the native side; all calls are async over the channel.
+- `src/cdp/models.dart` — CDP data classes (CdpData, CdpRfv, MeterState, MeterWindow, MeterNotFoundError). The CDP logic lives in the native SDKs; Dart only carries these values.
 - `src/method_channel.dart` — shared `MethodChannel` constant
 
 ### Native layers

@@ -10,10 +10,15 @@ class CompassTracking {
 
   CompassTracking._();
 
-  static void initialize(String accountId, {int? pageTechnology}) {
+  static void initialize(
+    String accountId, {
+    int? pageTechnology,
+    bool enableCdp = false,
+  }) {
     _channel.invokeMethod('initialize', {
       'accountId': accountId,
       'pageTechnology': pageTechnology,
+      'enableCdp': enableCdp,
     });
   }
 

@@ -22,7 +22,7 @@ class _MarfeelExampleAppState extends State<MarfeelExampleApp> {
   @override
   void initState() {
     super.initState();
-    CompassTracking.initialize('1659', pageTechnology: 105);
+    CompassTracking.initialize('1659', pageTechnology: 105, enableCdp: true);
     CompassTracking.setConsent(true);
     CompassTracking.setLandingPage('http://dev.marfeel.co/');
     CompassTracking.trackScreen('home');

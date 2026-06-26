@@ -29,13 +29,19 @@ void main() {
   test('initialize sends correct arguments', () {
     CompassTracking.initialize('1659', pageTechnology: 105);
     expect(calls.last.method, 'initialize');
-    expect(calls.last.arguments, {'accountId': '1659', 'pageTechnology': 105});
+    expect(calls.last.arguments,
+        {'accountId': '1659', 'pageTechnology': 105, 'enableCdp': false});
   });
 
   test('initialize without pageTechnology', () {
     CompassTracking.initialize('1659');
-    expect(
-        calls.last.arguments, {'accountId': '1659', 'pageTechnology': null});
+    expect(calls.last.arguments,
+        {'accountId': '1659', 'pageTechnology': null, 'enableCdp': false});
+  });
+
+  test('initialize forwards enableCdp', () {
+    CompassTracking.initialize('1659', enableCdp: true);
+    expect((calls.last.arguments as Map)['enableCdp'], true);
   });
 
   test('trackNewPage sends url and rs', () {

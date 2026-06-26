@@ -2,8 +2,8 @@ PODS:
   - Flutter (1.0.0)
   - marfeel_sdk (0.1.0):
     - Flutter
-    - MarfeelSDK-iOS (~> 2.18.9)
-  - MarfeelSDK-iOS (2.18.9)
+    - MarfeelSDK-iOS (~> 2.18.10)
+  - MarfeelSDK-iOS (2.18.10)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)

@@ -10,6 +10,10 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import com.marfeel.compass.cdp.Cdp
+import com.marfeel.compass.cdp.model.CdpData
+import com.marfeel.compass.cdp.model.MeterNotFoundError
+import com.marfeel.compass.cdp.model.MeterState
 import com.marfeel.compass.core.model.compass.ConversionOptions
 import com.marfeel.compass.core.model.compass.ConversionScope
 import com.marfeel.compass.core.model.compass.UserType
@@ -82,13 +86,14 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             "initialize" -> {
                 val accountId = call.argument<String>("accountId")!!
                 val pageTechnology = call.argument<Int>("pageTechnology")
+                val enableCdp = call.argument<Boolean>("enableCdp") ?: false
                 val context = binding?.applicationContext ?: return result.error("NO_CONTEXT", "No application context", null)
                 mainHandler.post {
                     try {
                         if (pageTechnology != null) {
-                            CompassTracking.initialize(context, accountId, pageTechnology)
+                            CompassTracking.initialize(context, accountId, pageTechnology, enableCdp)
                         } else {
-                            CompassTracking.initialize(context, accountId)
+                            CompassTracking.initialize(context, accountId, enableCdp = enableCdp)
                         }
                         result.success(null)
                     } catch (e: Exception) {
@@ -652,9 +657,153 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "cdp.doIdentityLink" -> {
+                val type = call.argument<String>("type")!!
+                val value = call.argument<String>("value")!!
+                val isDeterministic = call.argument<Boolean>("isDeterministic") ?: false
+                try {
+                    Cdp.getInstance().cdpDoIdentityLink(type, value, isDeterministic)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getData" -> {
+                try {
+                    result.success(encodeCdpData(Cdp.getInstance().getCdpData()))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getMasterId" -> {
+                try {
+                    result.success(Cdp.getInstance().getCdpMasterId())
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.addSegment" -> {
+                val segment = call.argument<String>("segment")!!
+                try {
+                    Cdp.getInstance().addCdpSegment(segment)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.removeSegment" -> {
+                val segment = call.argument<String>("segment")!!
+                try {
+                    Cdp.getInstance().removeCdpSegment(segment)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.setSegments" -> {
+                val segments = call.argument<List<String>>("segments")!!
+                try {
+                    Cdp.getInstance().setCdpSegments(segments)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.clearSegments" -> {
+                try {
+                    Cdp.getInstance().clearCdpSegments()
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getSegments" -> {
+                try {
+                    result.success(Cdp.getInstance().getCdpSegments())
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getMeterSnapshot" -> {
+                pluginScope.launch {
+                    try {
+                        val meters = Cdp.getInstance().getMeterSnapshot().map(::encodeMeter)
+                        withContext(Dispatchers.Main) { result.success(meters) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.getMeterSnapshot error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.getMeter" -> {
+                val name = call.argument<String>("name")!!
+                try {
+                    result.success(Cdp.getInstance().getMeter(name)?.let(::encodeMeter))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.listMeters" -> {
+                try {
+                    result.success(Cdp.getInstance().listMeters().map(::encodeMeter))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.incrementMeter" -> {
+                val name = call.argument<String>("name")!!
+                pluginScope.launch {
+                    try {
+                        val meter = Cdp.getInstance().incrementMeter(name)?.let(::encodeMeter)
+                        withContext(Dispatchers.Main) { result.success(meter) }
+                    } catch (e: MeterNotFoundError) {
+                        withContext(Dispatchers.Main) {
+                            result.error("METER_NOT_FOUND", e.message, e.meterName)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.incrementMeter error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
+
+    private fun encodeCdpData(data: CdpData): Map<String, Any?> = mapOf(
+        "masterId" to data.masterId,
+        "rfv" to data.rfv?.let {
+            mapOf("rfv" to it.rfv, "r" to it.r, "f" to it.f, "v" to it.v)
+        },
+        "cohorts" to data.cohorts,
+    )
+
+    private fun encodeMeter(meter: MeterState): Map<String, Any?> = mapOf(
+        "name" to meter.name,
+        "count" to meter.count,
+        "threshold" to meter.threshold,
+        "reached" to meter.reached,
+        "remaining" to meter.remaining,
+        "startedAt" to meter.startedAt?.time,
+        "expiresAt" to meter.expiresAt?.time,
+        "window" to mapOf(
+            "duration" to meter.window.duration,
+            "period" to meter.window.period,
+            "tz" to meter.window.tz,
+        ),
+    )
 
     private fun lookupExperience(id: String): Experience? = synchronized(cacheLock) {
         experienceCache[id]

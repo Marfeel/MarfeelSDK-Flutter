@@ -5,3 +5,5 @@ export 'src/compass_scroll_view.dart';
 export 'src/experiences/experiences.dart';
 export 'src/experiences/recirculation.dart';
 export 'src/experiences/models.dart';
+export 'src/cdp/cdp.dart';
+export 'src/cdp/models.dart';

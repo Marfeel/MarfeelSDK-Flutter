@@ -41,7 +41,7 @@ No additional setup required. The native SDK is installed automatically via Coco
 ```dart
 import 'package:marfeel_sdk/marfeel_sdk.dart';
 
-// Initialize the SDK
+// Initialize the SDK (pass enableCdp: true to opt into the CDP subsystem)
 CompassTracking.initialize('YOUR_ACCOUNT_ID');
 CompassTracking.setConsent(true);
 CompassTracking.setLandingPage('https://yoursite.com/');
@@ -142,6 +142,54 @@ if (rfv != null) {
   print('RFV: ${rfv.rfv}, R: ${rfv.r}, F: ${rfv.f}, V: ${rfv.v}');
 }
 ```
+
+### Customer Data Platform (CDP)
+
+The CDP assigns a stable visitor `master_id`, carries read-only RFV + cohorts,
+lets you push segments, and exposes server-authoritative meters (e.g. metered
+paywalls). It is strictly fail-open: a CDP outage never breaks tracking.
+
+The whole subsystem is gated behind **two** conditions — both must hold or every
+call no-ops and no network request is made:
+
+1. The `enableCdp: true` opt-in at `initialize`.
+2. Personalization consent (`CompassTracking.setConsent(true)`).
+
+```dart
+// Opt in at initialization
+CompassTracking.initialize('YOUR_ACCOUNT_ID', enableCdp: true);
+CompassTracking.setConsent(true);
+
+// Link a known identifier to the current visitor
+Cdp.cdpDoIdentityLink('registered_user_id', 'user_456', isDeterministic: true);
+
+// Read the resolved identity
+final masterId = await Cdp.getCdpMasterId();
+final data = await Cdp.getCdpData(); // { masterId, rfv, cohorts }
+
+// Segments (separate from the legacy CompassTracking.*UserSegment APIs)
+Cdp.addCdpSegment('sports_fan');
+Cdp.setCdpSegments(['sports_fan', 'subscriber']);
+Cdp.removeCdpSegment('sports_fan');
+Cdp.clearCdpSegments();
+final segments = await Cdp.getCdpSegments();
+
+// Meters (metered paywall counters)
+final meters = await Cdp.getMeterSnapshot();   // refresh + return all meters
+final meter = await Cdp.getMeter('paywall');   // cached read of one meter
+final all = await Cdp.listMeters();            // cached read of all meters
+
+try {
+  final updated = await Cdp.incrementMeter('paywall');
+  print('count: ${updated?.count} / ${updated?.threshold}');
+} on MeterNotFoundError catch (e) {
+  print('Meter "${e.meterName}" is not configured for this site');
+}
+```
+
+> The CDP segment APIs (`addCdpSegment`, `setCdpSegments`, …) are **separate**
+> from the legacy `CompassTracking.addUserSegment` / `setUserSegments` family,
+> which remain unchanged.
 
 ### Multimedia tracking
 

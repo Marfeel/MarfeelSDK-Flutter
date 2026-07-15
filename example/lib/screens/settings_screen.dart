@@ -91,6 +91,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ElevatedButton(
                 onPressed: () async {
+                  final sessionId = await CompassTracking.getSessionId();
+                  _showResult('Session ID: $sessionId');
+                },
+                child: const Text('Get Session ID'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
                   final rfv = await CompassTracking.getRFV();
                   _showResult(rfv != null
                       ? 'RFV: ${rfv.rfv}, R: ${rfv.r}, F: ${rfv.f}, V: ${rfv.v}'

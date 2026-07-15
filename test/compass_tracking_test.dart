@@ -14,6 +14,7 @@ void main() {
         .setMockMethodCallHandler(MarfeelSdkChannel.channel, (call) async {
       calls.add(call);
       if (call.method == 'getUserId') return 'test-user-id';
+      if (call.method == 'getSessionId') return 'test-session-id';
       if (call.method == 'getRFV') {
         return '{"rfv":1.0,"r":2.0,"f":3.0,"v":4.0}';
       }
@@ -75,6 +76,11 @@ void main() {
   test('getUserId returns value', () async {
     final id = await CompassTracking.getUserId();
     expect(id, 'test-user-id');
+  });
+
+  test('getSessionId returns value', () async {
+    final id = await CompassTracking.getSessionId();
+    expect(id, 'test-session-id');
   });
 
   test('getRFV parses json', () async {

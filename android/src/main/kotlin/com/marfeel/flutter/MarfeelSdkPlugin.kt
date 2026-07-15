@@ -177,6 +177,17 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "getSessionId" -> {
+                mainHandler.post {
+                    try {
+                        val sessionId = CompassTracking.getInstance().getSessionId()
+                        result.success(sessionId)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
             "setUserType" -> {
                 val userType = call.argument<Int>("userType")!!
                 mainHandler.post {

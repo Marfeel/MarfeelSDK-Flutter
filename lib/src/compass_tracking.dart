@@ -55,6 +55,11 @@ class CompassTracking {
     return result!;
   }
 
+  static Future<String> getSessionId() async {
+    final result = await _channel.invokeMethod<String>('getSessionId');
+    return result!;
+  }
+
   static void setUserType(UserType userType) {
     _channel.invokeMethod('setUserType', {'userType': userType.value});
   }

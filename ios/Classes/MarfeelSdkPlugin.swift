@@ -61,6 +61,10 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             let userId = CompassTracker.shared.getUserId()
             result(userId)
 
+        case "getSessionId":
+            let sessionId = CompassTracker.shared.getSessionId()
+            result(sessionId)
+
         case "setUserType":
             let userType = args?["userType"] as? Int ?? 1
             let type: UserType

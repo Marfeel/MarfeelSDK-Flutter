@@ -41,8 +41,8 @@ The plugin uses Flutter's **MethodChannel** (`com.marfeel.sdk/compass`) for Dart
 - **iOS** (`ios/Classes/MarfeelSdkPlugin.swift`) — Swift plugin mapping method channel calls to `CompassTracker`/`CompassTrackerMultimedia`.
 
 ### Native SDK dependencies
-- Android: `com.marfeel.compass:views:1.16.6` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
-- iOS: `MarfeelSDK-iOS ~> 2.18.7` (CocoaPods)
+- Android: `com.marfeel.compass:views:1.18.2` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
+- iOS: `MarfeelSDK-iOS ~> 2.18.12` (CocoaPods)
 
 ## Testing
 

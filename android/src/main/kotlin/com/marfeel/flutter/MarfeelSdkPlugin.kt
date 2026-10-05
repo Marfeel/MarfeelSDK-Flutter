@@ -11,6 +11,12 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import com.marfeel.compass.cdp.Cdp
+import com.marfeel.compass.cdp.model.CdpConsent
+import com.marfeel.compass.cdp.model.CdpConsentDefinition
+import com.marfeel.compass.cdp.model.CdpConsentQuery
+import com.marfeel.compass.cdp.model.CdpConsentRecordResponse
+import com.marfeel.compass.cdp.model.CdpConsentRef
+import com.marfeel.compass.cdp.model.CdpConsentStatus
 import com.marfeel.compass.cdp.model.CdpData
 import com.marfeel.compass.cdp.model.MeterNotFoundError
 import com.marfeel.compass.cdp.model.MeterState
@@ -182,6 +188,60 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     try {
                         val sessionId = CompassTracking.getInstance().getSessionId()
                         result.success(sessionId)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "getUserSegments" -> {
+                mainHandler.post {
+                    try {
+                        result.success(CompassTracking.getInstance().getUserSegments())
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "getUserSegmentsAsync" -> {
+                pluginScope.launch {
+                    try {
+                        val segments = CompassTracking.getInstance().getUserSegmentsAsync()
+                        withContext(Dispatchers.Main) { result.success(segments) }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "getUserVars" -> {
+                mainHandler.post {
+                    try {
+                        result.success(CompassTracking.getInstance().getUserVars())
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+            }
+
+            "getUserVarsAsync" -> {
+                pluginScope.launch {
+                    try {
+                        val vars = CompassTracking.getInstance().getUserVarsAsync()
+                        withContext(Dispatchers.Main) { result.success(vars) }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "resetUser" -> {
+                mainHandler.post {
+                    try {
+                        CompassTracking.getInstance().resetUser {
+                            mainHandler.post { result.success(null) }
+                        }
                     } catch (e: Exception) {
                         result.error("ERROR", e.message, null)
                     }
@@ -668,21 +728,42 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
-            "cdp.doIdentityLink" -> {
+            "cdp.setIdentity" -> {
                 val type = call.argument<String>("type")!!
                 val value = call.argument<String>("value")!!
                 val isDeterministic = call.argument<Boolean>("isDeterministic") ?: false
-                try {
-                    Cdp.getInstance().cdpDoIdentityLink(type, value, isDeterministic)
-                    result.success(null)
-                } catch (e: Exception) {
-                    result.error("ERROR", e.message, null)
+                pluginScope.launch {
+                    try {
+                        Cdp.getInstance().setIdentity(type, value, isDeterministic)
+                        withContext(Dispatchers.Main) { result.success(null) }
+                    } catch (e: IllegalArgumentException) {
+                        withContext(Dispatchers.Main) { result.error("CDP_INVALID_ARGUMENT", e.message, null) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.setIdentity error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
                 }
             }
 
-            "cdp.getData" -> {
+            "cdp.deleteIdentity" -> {
+                val type = call.argument<String>("type")!!
+                val value = call.argument<String>("value")
+                pluginScope.launch {
+                    try {
+                        Cdp.getInstance().deleteIdentity(type, value)
+                        withContext(Dispatchers.Main) { result.success(null) }
+                    } catch (e: IllegalArgumentException) {
+                        withContext(Dispatchers.Main) { result.error("CDP_INVALID_ARGUMENT", e.message, null) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.deleteIdentity error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.getUserProfile" -> {
                 try {
-                    result.success(encodeCdpData(Cdp.getInstance().getCdpData()))
+                    result.success(encodeCdpData(Cdp.getInstance().getUserProfile()))
                 } catch (e: Exception) {
                     result.error("ERROR", e.message, null)
                 }
@@ -690,9 +771,116 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
             "cdp.getMasterId" -> {
                 try {
-                    result.success(Cdp.getInstance().getCdpMasterId())
+                    result.success(Cdp.getInstance().getMasterId())
                 } catch (e: Exception) {
                     result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.trackConsent" -> {
+                val decision = try {
+                    parseConsentDecision(call)
+                } catch (e: Exception) {
+                    result.error("CDP_INVALID_ARGUMENT", e.message, null)
+                    return
+                }
+                pluginScope.launch {
+                    try {
+                        val record = Cdp.getInstance().trackConsent(decision)?.let(::encodeConsentRecord)
+                        withContext(Dispatchers.Main) { result.success(record) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.trackConsent error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.getConsent" -> {
+                val consentId = call.argument<String>("consentId")!!
+                val versionId = call.argument<String>("versionId")
+                pluginScope.launch {
+                    try {
+                        val definition = Cdp.getInstance()
+                            .getConsent(CdpConsentRef(consentId, versionId))
+                            ?.let(::encodeConsentDefinition)
+                        withContext(Dispatchers.Main) { result.success(definition) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.getConsent error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.hasConsent" -> {
+                val consentId = call.argument<String>("consentId")!!
+                val versionId = call.argument<String>("versionId")
+                val email = call.argument<String>("email")
+                pluginScope.launch {
+                    try {
+                        val granted = Cdp.getInstance().hasConsent(CdpConsentQuery(consentId, versionId, email))
+                        withContext(Dispatchers.Main) { result.success(granted) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.hasConsent error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.hashEmail" -> {
+                val email = call.argument<String>("email")!!
+                try {
+                    result.success(Cdp.getInstance().hashEmail(email))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.hashPhone" -> {
+                val phone = call.argument<String>("phone")!!
+                try {
+                    result.success(Cdp.getInstance().hashPhone(phone))
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.listServerSegments" -> {
+                try {
+                    result.success(Cdp.getInstance().listServerSegments())
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getServerSegments" -> {
+                pluginScope.launch {
+                    try {
+                        val segments = Cdp.getInstance().getServerSegments()
+                        withContext(Dispatchers.Main) { result.success(segments) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.getServerSegments error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
+                }
+            }
+
+            "cdp.listServerProperties" -> {
+                try {
+                    result.success(Cdp.getInstance().listServerProperties())
+                } catch (e: Exception) {
+                    result.error("ERROR", e.message, null)
+                }
+            }
+
+            "cdp.getServerProperties" -> {
+                pluginScope.launch {
+                    try {
+                        val properties = Cdp.getInstance().getServerProperties()
+                        withContext(Dispatchers.Main) { result.success(properties) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "cdp.getServerProperties error: ${e.message}", e)
+                        withContext(Dispatchers.Main) { result.error("ERROR", e.message, null) }
+                    }
                 }
             }
 
@@ -799,6 +987,52 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             mapOf("rfv" to it.rfv, "r" to it.r, "f" to it.f, "v" to it.v)
         },
         "cohorts" to data.cohorts,
+        "identityFresh" to data.identityFresh,
+    )
+
+    private fun parseConsentDecision(call: MethodCall): CdpConsent {
+        val metadata = call.argument<Map<Any?, Any?>>("metadata")
+            ?.entries
+            ?.associate { (key, value) -> key.toString() to value.toString() }
+        return CdpConsent(
+            consentId = call.argument<String>("consentId")!!,
+            versionId = call.argument<String>("versionId")!!,
+            status = if (call.argument<String>("status")?.startsWith("accept") == true) {
+                CdpConsentStatus.ACCEPTED
+            } else {
+                CdpConsentStatus.REJECTED
+            },
+            metadata = metadata,
+            email = call.argument<String>("email")?.ifEmpty { null },
+        )
+    }
+
+    private fun encodeConsentRecord(record: CdpConsentRecordResponse): Map<String, Any?> = mapOf(
+        "masterId" to record.masterId?.ifEmpty { null },
+        "consentId" to record.consentId,
+        "consentVersionId" to record.consentVersionId,
+        "status" to record.status,
+        "recorded" to record.recorded,
+        "stored" to record.stored,
+    )
+
+    private fun encodeConsentDefinition(definition: CdpConsentDefinition): Map<String, Any?> = mapOf(
+        "consentId" to definition.consentId,
+        "name" to definition.name,
+        "purpose" to definition.purpose,
+        "mandatory" to definition.mandatory,
+        "acceptMethod" to definition.acceptMethod,
+        "showPolicy" to definition.showPolicy.wireValue,
+        "version" to definition.version?.let {
+            mapOf(
+                "versionId" to it.versionId,
+                "label" to it.label,
+                "date" to it.date,
+                "displayPrompt" to it.displayPrompt,
+                "errorMessage" to it.errorMessage,
+                "metadata" to it.metadata,
+            )
+        },
     )
 
     private fun encodeMeter(meter: MeterState): Map<String, Any?> = mapOf(

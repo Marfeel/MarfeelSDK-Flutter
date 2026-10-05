@@ -17,6 +17,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _segmentController = TextEditingController();
   final _cdpSegmentController = TextEditingController();
   final _meterController = TextEditingController();
+  final _consentIdController = TextEditingController(text: 'privacy_policy');
+  final _consentVersionController = TextEditingController(text: '1');
+  final _emailController = TextEditingController();
   String _resultText = '';
   bool _consent = true;
 
@@ -30,6 +33,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _segmentController.dispose();
     _cdpSegmentController.dispose();
     _meterController.dispose();
+    _consentIdController.dispose();
+    _consentVersionController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -198,31 +204,147 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const Divider(height: 32),
-          _sectionTitle('CDP — Identity & Data'),
+          _sectionTitle('CDP — Identity & Profile'),
+          TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(hintText: 'Email to hash')),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               ElevatedButton(
-                onPressed: () => Cdp.cdpDoIdentityLink(
-                    'registered_user_id', _userIdController.text,
-                    isDeterministic: true),
-                child: const Text('Link Identity'),
+                onPressed: () async {
+                  await Cdp.setIdentity(
+                      CdpIdentityTypes.registeredUserId, _userIdController.text,
+                      isDeterministic: true);
+                  _showResult('Identity set; master_id: '
+                      '${await Cdp.getMasterId() ?? 'null'}');
+                },
+                child: const Text('Set Identity'),
               ),
               ElevatedButton(
                 onPressed: () async {
-                  final id = await Cdp.getCdpMasterId();
+                  final digest = await Cdp.hashEmail(_emailController.text);
+                  await Cdp.setIdentity(CdpIdentityTypes.emailSha256, digest);
+                  _showResult('Linked email_sha256 $digest');
+                },
+                child: const Text('Set Hashed Email'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await Cdp.deleteIdentity(CdpIdentityTypes.registeredUserId);
+                  _showResult('Deleted registered_user_id identities');
+                },
+                child: const Text('Delete Identity'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final id = await Cdp.getMasterId();
                   _showResult('CDP master_id: ${id ?? 'null'}');
                 },
                 child: const Text('Get master_id'),
               ),
               ElevatedButton(
                 onPressed: () async {
-                  final data = await Cdp.getCdpData();
-                  _showResult('CDP data: masterId=${data.masterId}, '
-                      'rfv=${data.rfv?.rfv}, cohorts=${data.cohorts}');
+                  final data = await Cdp.getUserProfile();
+                  _showResult('CDP profile: masterId=${data.masterId}, '
+                      'rfv=${data.rfv?.rfv}, cohorts=${data.cohorts}, '
+                      'fresh=${data.identityFresh}');
                 },
-                child: const Text('Get CDP Data'),
+                child: const Text('Get Profile'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await CompassTracking.resetUser();
+                  final id = await CompassTracking.getUserId();
+                  _showResult('User reset; new user id: $id');
+                },
+                child: const Text('Reset User'),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _sectionTitle('CDP — Server Segments & Properties'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  final segments = await Cdp.getServerSegments();
+                  _showResult('Server segments: $segments');
+                },
+                child: const Text('Server Segments'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final properties = await Cdp.getServerProperties();
+                  _showResult('Server properties: $properties');
+                },
+                child: const Text('Server Properties'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final segments = await CompassTracking.getUserSegments();
+                  _showResult('Beacon useg: $segments');
+                },
+                child: const Text('Merged Segments'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final vars = await CompassTracking.getUserVars();
+                  _showResult('Beacon uvar: $vars');
+                },
+                child: const Text('Merged Vars'),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _sectionTitle('CDP — Publisher Consents'),
+          TextField(
+              controller: _consentIdController,
+              decoration: const InputDecoration(hintText: 'Consent id')),
+          const SizedBox(height: 8),
+          TextField(
+              controller: _consentVersionController,
+              decoration: const InputDecoration(hintText: 'Version id')),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton(
+                onPressed: () => _trackConsent(CdpConsentStatus.accepted),
+                child: const Text('Accept'),
+              ),
+              ElevatedButton(
+                onPressed: () => _trackConsent(CdpConsentStatus.rejected),
+                child: const Text('Reject'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final definition = await Cdp.getConsent(CdpConsentRef(
+                      consentId: _consentIdController.text,
+                      versionId: _versionOrNull()));
+                  _showResult(definition == null
+                      ? 'Consent not found'
+                      : '${definition.name} (${definition.acceptMethod}, '
+                          '${definition.showPolicy.wireValue}) '
+                          'v${definition.version?.versionId}: '
+                          '${definition.version?.displayPrompt}');
+                },
+                child: const Text('Definition'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final granted = await Cdp.hasConsent(CdpConsentQuery(
+                      consentId: _consentIdController.text,
+                      versionId: _versionOrNull(),
+                      email: _emailOrNull()));
+                  _showResult('Has consent: $granted');
+                },
+                child: const Text('Has Consent?'),
               ),
             ],
           ),
@@ -320,6 +442,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  String? _versionOrNull() {
+    final version = _consentVersionController.text.trim();
+    return version.isEmpty ? null : version;
+  }
+
+  String? _emailOrNull() {
+    final email = _emailController.text.trim();
+    return email.isEmpty ? null : email;
+  }
+
+  Future<void> _trackConsent(CdpConsentStatus status) async {
+    final record = await Cdp.trackConsent(CdpConsent(
+      consentId: _consentIdController.text,
+      versionId: _consentVersionController.text,
+      status: status,
+      metadata: const {'source': 'example_app'},
+      email: _emailOrNull(),
+    ));
+    _showResult(record == null
+        ? 'Consent not recorded (CDP disabled or offline)'
+        : 'Consent ${record.status}: recorded=${record.recorded}, '
+            'stored=${record.stored}, master=${record.masterId}');
   }
 
   Widget _sectionTitle(String title) {

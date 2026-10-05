@@ -15,7 +15,7 @@ Flutter plugin for the [Marfeel Compass](https://www.marfeel.com) analytics SDK.
 
 ```yaml
 dependencies:
-  marfeel_sdk: ^0.1.0
+  marfeel_sdk: ^0.2.1
 ```
 
 ### Android setup
@@ -146,11 +146,13 @@ if (rfv != null) {
 ### Customer Data Platform (CDP)
 
 The CDP assigns a stable visitor `master_id`, carries read-only RFV + cohorts,
-lets you push segments, and exposes server-authoritative meters (e.g. metered
-paywalls). It is strictly fail-open: a CDP outage never breaks tracking.
+lets you push segments, mirrors the Server Segments / Server Properties the CDP
+computes for the visitor, exposes server-authoritative meters (e.g. metered
+paywalls) and records publisher consents. It is strictly fail-open: a CDP
+outage never breaks tracking.
 
-The whole subsystem is gated behind **two** conditions — both must hold or every
-call no-ops and no network request is made:
+The identity subsystem is gated behind **two** conditions — both must hold or
+every identity call no-ops and no network request is made:
 
 1. The `enableCdp: true` opt-in at `initialize`.
 2. Personalization consent (`CompassTracking.setConsent(true)`).
@@ -159,22 +161,98 @@ call no-ops and no network request is made:
 // Opt in at initialization
 CompassTracking.initialize('YOUR_ACCOUNT_ID', enableCdp: true);
 CompassTracking.setConsent(true);
+```
 
-// Link a known identifier to the current visitor
-Cdp.cdpDoIdentityLink('registered_user_id', 'user_456', isDeterministic: true);
+#### Identity
+
+```dart
+// Link a known identifier to the current visitor. Completes once the link
+// round-trip finishes; throws ArgumentError on an empty type or value.
+await Cdp.setIdentity(CdpIdentityTypes.registeredUserId, 'user_456',
+    isDeterministic: true);
+
+// Emails and phones are hashed on the device before they leave
+final digest = await Cdp.hashEmail(' Foo@Bar.com ');   // trim + lower-case, SHA-256 hex
+await Cdp.setIdentity(CdpIdentityTypes.emailSha256, digest);
+await Cdp.setIdentity(CdpIdentityTypes.phoneSha256, await Cdp.hashPhone('+34600111222'));
+
+// Unlink one identity, or every identity of a type
+await Cdp.deleteIdentity(CdpIdentityTypes.emailSha256, value: digest);
+await Cdp.deleteIdentity(CdpIdentityTypes.registeredUserId);
 
 // Read the resolved identity
-final masterId = await Cdp.getCdpMasterId();
-final data = await Cdp.getCdpData(); // { masterId, rfv, cohorts }
+final masterId = await Cdp.getMasterId();
+final profile = await Cdp.getUserProfile(); // masterId, rfv, cohorts, identityFresh
+```
 
-// Segments (separate from the legacy CompassTracking.*UserSegment APIs)
+`CdpIdentityTypes` lists the accepted types: the `stable` ones identify a
+registered user and are kept permanently, the `deviceBound` ones are anonymous
+and age out 180 days after the last write.
+
+#### Sign-out
+
+```dart
+// Forget the current user on the device (new user id, session, user vars,
+// segments, CDP identity and caches) and reset the identity server-side.
+// Keeps the CMP consent. Never throws; completes within ~5 s.
+await CompassTracking.resetUser();
+```
+
+#### Segments and Server Segments / Properties
+
+```dart
+// Device-owned CDP segments (separate from the legacy CompassTracking.*UserSegment APIs)
 Cdp.addCdpSegment('sports_fan');
 Cdp.setCdpSegments(['sports_fan', 'subscriber']);
 Cdp.removeCdpSegment('sports_fan');
 Cdp.clearCdpSegments();
 final segments = await Cdp.getCdpSegments();
 
-// Meters (metered paywall counters)
+// Segments and properties the CDP asserts for this visitor
+final serverSegments = await Cdp.listServerSegments();     // known right now
+final resolvedSegments = await Cdp.getServerSegments();    // after an identity resolve
+final serverProperties = await Cdp.listServerProperties();
+final resolvedProperties = await Cdp.getServerProperties();
+
+// What a beacon carries: Server Segments first, then device-owned ones,
+// deduplicated and trimmed to 100; Server Properties under device-owned vars.
+final useg = await CompassTracking.getUserSegments();
+final uvar = await CompassTracking.getUserVars();
+```
+
+Server Segments cannot be claimed through `CompassTracking.setUserSegments`;
+use `addUserSegment` to take ownership of one. When the union exceeds 100
+segments the user var `mrf_tooManySegments` is set to `"true"`.
+
+#### Publisher consents
+
+Publisher consents (a privacy policy, a newsletter opt-in) are unrelated to the
+CMP consent set through `setConsent`. They only require `enableCdp: true`.
+
+```dart
+final record = await Cdp.trackConsent(CdpConsent(
+  consentId: 'privacy_policy',
+  versionId: '3',
+  status: CdpConsentStatus.accepted,
+  metadata: {'source': 'settings'},
+  email: 'foo@bar.com', // optional; hashed on the device
+));
+// null on failure or when CDP is disabled; an anonymous decision is
+// remembered on the device and replayed once a master_id exists.
+
+final definition = await Cdp.getConsent(CdpConsentRef(consentId: 'privacy_policy'));
+if (definition?.acceptMethod == CdpConsentAcceptMethod.formSubmit) {
+  // show no checkbox — submitting the form is the consent
+}
+if (definition?.showPolicy == CdpConsentShowPolicy.ifNotAccepted &&
+    await Cdp.hasConsent(CdpConsentQuery(consentId: 'privacy_policy'))) {
+  // already accepted — skip the prompt
+}
+```
+
+#### Meters
+
+```dart
 final meters = await Cdp.getMeterSnapshot();   // refresh + return all meters
 final meter = await Cdp.getMeter('paywall');   // cached read of one meter
 final all = await Cdp.listMeters();            // cached read of all meters
@@ -189,7 +267,9 @@ try {
 
 > The CDP segment APIs (`addCdpSegment`, `setCdpSegments`, …) are **separate**
 > from the legacy `CompassTracking.addUserSegment` / `setUserSegments` family,
-> which remain unchanged.
+> which remain unchanged. `cdpDoIdentityLink`, `getCdpData` and
+> `getCdpMasterId` are deprecated aliases of `setIdentity`, `getUserProfile`
+> and `getMasterId`.
 
 ### Multimedia tracking
 

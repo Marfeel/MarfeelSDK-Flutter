@@ -65,6 +65,27 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             let sessionId = CompassTracker.shared.getSessionId()
             result(sessionId)
 
+        case "getUserSegments":
+            result(CompassTracker.shared.getUserSegments())
+
+        case "getUserSegmentsAsync":
+            CompassTracker.shared.getUserSegments { segments in
+                DispatchQueue.main.async { result(segments) }
+            }
+
+        case "getUserVars":
+            result(CompassTracker.shared.getUserVars())
+
+        case "getUserVarsAsync":
+            CompassTracker.shared.getUserVars { vars in
+                DispatchQueue.main.async { result(vars) }
+            }
+
+        case "resetUser":
+            CompassTracker.shared.resetUser {
+                DispatchQueue.main.async { result(nil) }
+            }
+
         case "setUserType":
             let userType = args?["userType"] as? Int ?? 1
             let type: UserType
@@ -388,18 +409,84 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             Experiences.shared.clearExperimentAssignments()
             result(nil)
 
-        case "cdp.doIdentityLink":
+        case "cdp.setIdentity":
             let type = args?["type"] as? String ?? ""
             let value = args?["value"] as? String ?? ""
             let isDeterministic = args?["isDeterministic"] as? Bool ?? false
-            Cdp.shared.cdpDoIdentityLink(type: type, value: value, isDeterministic: isDeterministic)
-            result(nil)
+            guard !type.isEmpty, !value.isEmpty else {
+                result(FlutterError(code: "CDP_INVALID_ARGUMENT", message: "Cdp.setIdentity: type and value are required", details: nil))
+                return
+            }
+            Cdp.shared.setIdentity(type: type, value: value, isDeterministic: isDeterministic) {
+                DispatchQueue.main.async { result(nil) }
+            }
 
-        case "cdp.getData":
-            result(Self.encodeCdpData(Cdp.shared.getCdpData()))
+        case "cdp.deleteIdentity":
+            let type = args?["type"] as? String ?? ""
+            let value = args?["value"] as? String
+            guard !type.isEmpty else {
+                result(FlutterError(code: "CDP_INVALID_ARGUMENT", message: "Cdp.deleteIdentity: type is required", details: nil))
+                return
+            }
+            Cdp.shared.deleteIdentity(type: type, value: value) {
+                DispatchQueue.main.async { result(nil) }
+            }
+
+        case "cdp.getUserProfile":
+            result(Self.encodeCdpData(Cdp.shared.getUserProfile()))
 
         case "cdp.getMasterId":
-            result(Cdp.shared.getCdpMasterId())
+            result(Cdp.shared.getMasterId())
+
+        case "cdp.trackConsent":
+            guard let decision = Self.parseConsentDecision(args) else {
+                result(FlutterError(code: "CDP_INVALID_ARGUMENT", message: "Cdp.trackConsent: consentId and versionId are required", details: nil))
+                return
+            }
+            Cdp.shared.trackConsent(decision) { record in
+                let payload = record.map { Self.encodeConsentRecord($0) }
+                DispatchQueue.main.async { result(payload) }
+            }
+
+        case "cdp.getConsent":
+            let consentId = args?["consentId"] as? String ?? ""
+            let versionId = args?["versionId"] as? String
+            Cdp.shared.getConsent(CdpConsentRef(consentId: consentId, versionId: versionId)) { definition in
+                let payload = definition.map { Self.encodeConsentDefinition($0) }
+                DispatchQueue.main.async { result(payload) }
+            }
+
+        case "cdp.hasConsent":
+            let consentId = args?["consentId"] as? String ?? ""
+            let versionId = args?["versionId"] as? String
+            let email = args?["email"] as? String
+            Cdp.shared.hasConsent(CdpConsentQuery(consentId: consentId, versionId: versionId, email: email)) { granted in
+                DispatchQueue.main.async { result(granted) }
+            }
+
+        case "cdp.hashEmail":
+            let email = args?["email"] as? String ?? ""
+            result(Cdp.shared.hashEmail(email))
+
+        case "cdp.hashPhone":
+            let phone = args?["phone"] as? String ?? ""
+            result(Cdp.shared.hashPhone(phone))
+
+        case "cdp.listServerSegments":
+            result(Cdp.shared.listServerSegments())
+
+        case "cdp.getServerSegments":
+            Cdp.shared.getServerSegments { segments in
+                DispatchQueue.main.async { result(segments) }
+            }
+
+        case "cdp.listServerProperties":
+            result(Cdp.shared.listServerProperties())
+
+        case "cdp.getServerProperties":
+            Cdp.shared.getServerProperties { properties in
+                DispatchQueue.main.async { result(properties) }
+            }
 
         case "cdp.addSegment":
             let segment = args?["segment"] as? String ?? ""
@@ -471,6 +558,57 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             "masterId": data.masterId,
             "rfv": rfv,
             "cohorts": data.cohorts,
+            "identityFresh": data.identityFresh,
+        ]
+    }
+
+    private static func parseConsentDecision(_ args: [String: Any]?) -> CdpConsent? {
+        guard let consentId = args?["consentId"] as? String, !consentId.isEmpty,
+              let versionId = args?["versionId"] as? String, !versionId.isEmpty else { return nil }
+        let metadata = (args?["metadata"] as? [AnyHashable: Any]).map { raw -> [String: String] in
+            var out: [String: String] = [:]
+            for (key, value) in raw { out[String(describing: key)] = (value as? String) ?? String(describing: value) }
+            return out
+        }
+        return CdpConsent(
+            consentId: consentId,
+            versionId: versionId,
+            status: (args?["status"] as? String)?.hasPrefix("accept") == true ? .accepted : .rejected,
+            metadata: metadata,
+            email: (args?["email"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private static func encodeConsentRecord(_ record: CdpConsentRecordResponse) -> [String: Any?] {
+        return [
+            "masterId": record.masterId.flatMap { $0.isEmpty ? nil : $0 },
+            "consentId": record.consentId,
+            "consentVersionId": record.consentVersionId,
+            "status": record.status,
+            "recorded": record.recorded,
+            "stored": record.stored,
+        ]
+    }
+
+    private static func encodeConsentDefinition(_ definition: CdpConsentDefinition) -> [String: Any?] {
+        let version: [String: Any?]? = definition.version.map {
+            [
+                "versionId": $0.versionId,
+                "label": $0.label,
+                "date": $0.date,
+                "displayPrompt": $0.displayPrompt,
+                "errorMessage": $0.errorMessage,
+                "metadata": $0.metadata,
+            ]
+        }
+        return [
+            "consentId": definition.consentId,
+            "name": definition.name,
+            "purpose": definition.purpose,
+            "mandatory": definition.mandatory,
+            "acceptMethod": definition.acceptMethod,
+            "showPolicy": definition.showPolicy.rawValue,
+            "version": version,
         ]
     }
 

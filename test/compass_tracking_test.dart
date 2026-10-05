@@ -18,6 +18,15 @@ void main() {
       if (call.method == 'getRFV') {
         return '{"rfv":1.0,"r":2.0,"f":3.0,"v":4.0}';
       }
+      if (call.method == 'getUserSegments') return <dynamic>['srv', 'mine'];
+      if (call.method == 'getUserSegmentsAsync') return <dynamic>['srv'];
+      if (call.method == 'getUserVars') {
+        return <dynamic, dynamic>{'tier': 'gold', 'lang': 'en'};
+      }
+      if (call.method == 'getUserVarsAsync') {
+        return <dynamic, dynamic>{'tier': 'gold'};
+      }
+      if (call.method == 'resetUser') throw PlatformException(code: 'ERROR');
       return null;
     });
   });
@@ -145,5 +154,41 @@ void main() {
   test('setConsent', () {
     CompassTracking.setConsent(true);
     expect(calls.last.arguments, {'hasConsent': true});
+  });
+
+  test('getUserSegments returns the merged list', () async {
+    expect(await CompassTracking.getUserSegments(), ['srv', 'mine']);
+    expect(calls.last.method, 'getUserSegments');
+  });
+
+  test('getUserSegmentsAsync resolves first', () async {
+    expect(await CompassTracking.getUserSegmentsAsync(), ['srv']);
+    expect(calls.last.method, 'getUserSegmentsAsync');
+  });
+
+  test('getUserVars returns the merged map', () async {
+    expect(await CompassTracking.getUserVars(), {'tier': 'gold', 'lang': 'en'});
+    expect(calls.last.method, 'getUserVars');
+  });
+
+  test('getUserVarsAsync resolves first', () async {
+    expect(await CompassTracking.getUserVarsAsync(), {'tier': 'gold'});
+    expect(calls.last.method, 'getUserVarsAsync');
+  });
+
+  test('getUserSegments / getUserVars null -> empty', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(MarfeelSdkChannel.channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    expect(await CompassTracking.getUserSegments(), isEmpty);
+    expect(await CompassTracking.getUserVars(), isEmpty);
+  });
+
+  test('resetUser calls native and never throws', () async {
+    await CompassTracking.resetUser();
+    expect(calls.last.method, 'resetUser');
+    expect(calls.last.arguments, isNull);
   });
 }

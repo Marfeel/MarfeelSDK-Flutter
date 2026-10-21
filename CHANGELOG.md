@@ -1,3 +1,9 @@
+## 0.2.2
+
+- `UserType.anonymous` is now `0` (was `1`), matching the web SDK; both native plugins still accept `1` as anonymous.
+- Android: bumped `com.marfeel.compass:views` to `1.18.5`.
+- iOS: bumped `MarfeelSDK-iOS` to `~> 2.18.17`.
+
 ## 0.2.1
 
 - CDP identity: `Cdp.setIdentity` (completes once the link round-trip ends, rejects empty type/value), `Cdp.deleteIdentity`, `Cdp.getUserProfile` (with `identityFresh`), `Cdp.getMasterId`, `CdpIdentityTypes`, and device-side hashing (`hashEmail`, `hashPhone`, `normalizeEmail`, `normalizePhone`). `cdpDoIdentityLink`, `getCdpData` and `getCdpMasterId` are now deprecated aliases.

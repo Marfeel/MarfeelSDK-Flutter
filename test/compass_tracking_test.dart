@@ -74,7 +74,7 @@ void main() {
 
   test('setUserType anonymous', () {
     CompassTracking.setUserType(UserType.anonymous);
-    expect(calls.last.arguments, {'userType': 1});
+    expect(calls.last.arguments, {'userType': 0});
   });
 
   test('setUserType custom', () {

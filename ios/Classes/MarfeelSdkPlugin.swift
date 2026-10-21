@@ -87,10 +87,10 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             }
 
         case "setUserType":
-            let userType = args?["userType"] as? Int ?? 1
+            let userType = args?["userType"] as? Int ?? 0
             let type: UserType
             switch userType {
-            case 1: type = .anonymous
+            case 0, 1: type = .anonymous
             case 2: type = .logged
             case 3: type = .paid
             default: type = .custom(userType)

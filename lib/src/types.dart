@@ -36,7 +36,7 @@ class UserType {
   final int value;
   const UserType._(this.value);
 
-  static const anonymous = UserType._(1);
+  static const anonymous = UserType._(0);
   static const logged = UserType._(2);
   static const paid = UserType._(3);
   factory UserType.custom(int value) => UserType._(value);

@@ -4,7 +4,7 @@ import 'package:marfeel_sdk/marfeel_sdk.dart';
 void main() {
   group('UserType', () {
     test('has correct numeric values', () {
-      expect(UserType.anonymous.value, 1);
+      expect(UserType.anonymous.value, 0);
       expect(UserType.logged.value, 2);
       expect(UserType.paid.value, 3);
     });

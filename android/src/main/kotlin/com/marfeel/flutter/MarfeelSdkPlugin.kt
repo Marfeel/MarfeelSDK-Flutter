@@ -253,7 +253,7 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 mainHandler.post {
                     try {
                         val type = when (userType) {
-                            1 -> UserType.Anonymous
+                            0, 1 -> UserType.Anonymous
                             2 -> UserType.Logged
                             3 -> UserType.Paid
                             else -> UserType.Custom(userType)

@@ -116,6 +116,18 @@ class ExperienceFilter {
       );
 }
 
+class Experimentation {
+  final bool isControl;
+  final String name;
+
+  const Experimentation({required this.isControl, required this.name});
+
+  factory Experimentation.fromMap(Map<dynamic, dynamic> m) => Experimentation(
+        isControl: m['isControl'] as bool? ?? false,
+        name: m['name'] as String? ?? '',
+      );
+}
+
 class Experience {
   final String id;
   final String name;
@@ -129,6 +141,7 @@ class Experience {
   final List<ExperienceSelector>? selectors;
   final List<ExperienceFilter>? filters;
   final Map<String, dynamic> rawJson;
+  final Experimentation? experimentation;
   String? resolvedContent;
 
   Experience({
@@ -144,12 +157,14 @@ class Experience {
     required this.selectors,
     required this.filters,
     required this.rawJson,
+    this.experimentation,
     this.resolvedContent,
   });
 
   factory Experience.fromMap(Map<dynamic, dynamic> m) {
     final selectorsRaw = m['selectors'] as List?;
     final filtersRaw = m['filters'] as List?;
+    final experimentationRaw = m['experimentation'] as Map?;
     return Experience(
       id: m['id'] as String? ?? '',
       name: m['name'] as String? ?? '',
@@ -173,6 +188,9 @@ class Experience {
           .map(ExperienceFilter.fromMap)
           .toList(growable: false),
       rawJson: (m['rawJson'] as Map?)?.cast<String, dynamic>() ?? const {},
+      experimentation: experimentationRaw == null
+          ? null
+          : Experimentation.fromMap(experimentationRaw),
       resolvedContent: m['resolvedContent'] as String?,
     );
   }

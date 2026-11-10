@@ -44,6 +44,13 @@ class _ExperiencesScreenState extends State<ExperiencesScreen> {
         resolve: _resolve,
         url: _urlController.text.isEmpty ? null : _urlController.text,
       );
+      for (final exp in exps) {
+        final experimentation = exp.experimentation;
+        final ab = experimentation == null
+            ? 'ab=none'
+            : 'ab=${experimentation.isControl ? 'control' : 'test'} tv=${experimentation.name}';
+        debugPrint('[Experiences] ${exp.id} $ab');
+      }
       setState(() {
         _experiences = exps;
         _statusMessage = 'Fetched ${exps.length} experiences';
@@ -251,6 +258,10 @@ class _ExperiencesScreenState extends State<ExperiencesScreen> {
             Text('id: ${exp.id}'),
             Text('type: ${exp.type.value}'),
             if (exp.family != null) Text('family: ${exp.family!.value}'),
+            if (exp.experimentation != null)
+              Text(
+                'experiment: ${exp.experimentation!.isControl ? 'control' : 'test'} · tv: ${exp.experimentation!.name}',
+              ),
             if (exp.contentUrl != null) Text('url: ${exp.contentUrl}'),
             if (exp.resolvedContent != null)
               Text(

@@ -1,3 +1,11 @@
+## 0.2.3
+
+- Experiments are now evaluated on the device like in the web SDK: losing variants are dropped and the control arm is returned by `Experiences.fetchExperiences`, marked through the new `Experience.experimentation` (`Experimentation(isControl, name)`, `null` outside an experiment). Check `isControl` before rendering: for the control arm keep your own module and still call the tracking methods.
+- Test-group assignments are deterministic per user, stored in the `mrfExperiment_<groupId>` user vars, and cleared by `CompassTracking.resetUser()`.
+- Recirculation events from `Experiences.trackEligible` / `trackImpression` / `trackClick` send the test version, and their module name is the base experience id.
+- Android: bumped `com.marfeel.compass:views` to `1.19.0`.
+- iOS: bumped `MarfeelSDK-iOS` to `~> 2.19.0`.
+
 ## 0.2.2
 
 - `UserType.anonymous` is now `0` (was `1`), matching the web SDK; both native plugins still accept `1` as anonymous.

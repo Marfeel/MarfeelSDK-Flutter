@@ -1093,5 +1093,6 @@ class MarfeelSdkPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         "filters" to e.filters?.map { mapOf("key" to it.key, "operator" to it.operator, "values" to it.values) },
         "rawJson" to e.rawJson,
         "resolvedContent" to e.resolvedContent,
+        "experimentation" to e.experimentation?.let { mapOf("isControl" to it.isControl, "name" to it.name) },
     )
 }

@@ -15,7 +15,7 @@ Flutter plugin for the [Marfeel Compass](https://www.marfeel.com) analytics SDK.
 
 ```yaml
 dependencies:
-  marfeel_sdk: ^0.2.1
+  marfeel_sdk: ^0.2.3
 ```
 
 ### Android setup
@@ -301,6 +301,27 @@ MultimediaTracking.registerEvent(
 ```
 
 Available multimedia events: `play`, `pause`, `end`, `updateCurrentTime`, `adPlay`, `mute`, `unmute`, `fullScreen`, `backScreen`, `enterViewport`, `leaveViewport`.
+
+### Experiences and experiments
+
+`Experiences.fetchExperiences()` returns the experiences that apply to the current page. Experiments are evaluated on the device: losing variants are dropped, and each returned experience says whether it belongs to an experiment through `experimentation`.
+
+```dart
+final experiences = await Experiences.fetchExperiences();
+
+for (final experience in experiences) {
+  if (experience.experimentation?.isControl ?? false) {
+    // Control arm: keep your own module instead of rendering the experience.
+    renderOwnModule();
+  } else {
+    renderExperience(experience);
+  }
+  // Track both arms so the experiment can compare them.
+  Experiences.trackEligible(experience: experience, links: links);
+}
+```
+
+`experimentation` is `null` when the experience is not part of an experiment. Otherwise it is an `Experimentation` with `isControl` and `name`, the test version sent with the tracking events. Since 0.2.3 the control arm is included in the list, so check `isControl` before rendering.
 
 ## Example app
 

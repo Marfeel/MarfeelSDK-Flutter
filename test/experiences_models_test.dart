@@ -90,6 +90,27 @@ void main() {
       expect(exp.filters!.first.values, ['v1', 'v2']);
       expect(exp.rawJson, {'r': true});
       expect(exp.resolvedContent, isNull);
+      expect(exp.experimentation, isNull);
+    });
+
+    test('parses experimentation for control and test experiences', () {
+      Experience parse(Map<String, dynamic> experimentation) =>
+          Experience.fromMap({
+            'id': 'IL_x',
+            'name': 'X',
+            'type': 'inline',
+            'contentType': 'Json',
+            'rawJson': <String, dynamic>{},
+            'experimentation': experimentation,
+          });
+
+      final control = parse({'isControl': true, 'name': 'control'});
+      expect(control.experimentation!.isControl, isTrue);
+      expect(control.experimentation!.name, 'control');
+
+      final variant = parse({'isControl': false, 'name': 'variant-b'});
+      expect(variant.experimentation!.isControl, isFalse);
+      expect(variant.experimentation!.name, 'variant-b');
     });
 
     test('parses minimal payload (defaults applied)', () {

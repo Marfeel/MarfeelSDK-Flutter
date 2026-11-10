@@ -41,8 +41,10 @@ The plugin uses Flutter's **MethodChannel** (`com.marfeel.sdk/compass`) for Dart
 - **iOS** (`ios/Classes/MarfeelSdkPlugin.swift`) — Swift plugin mapping method channel calls to `CompassTracker`/`CompassTrackerMultimedia`.
 
 ### Native SDK dependencies
-- Android: `com.marfeel.compass:views:1.18.5` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
-- iOS: `MarfeelSDK-iOS ~> 2.18.17` (CocoaPods)
+- Android: `com.marfeel.compass:views:1.19.0` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
+- iOS: `MarfeelSDK-iOS ~> 2.19.0` (CocoaPods)
+
+Experiments are evaluated by the native SDKs (Android ≥ 1.19.0, iOS ≥ 2.19.0). The control arm of an experiment is returned by `Experiences.fetchExperiences` like any other experience, marked with `experimentation` (`Experimentation(isControl, name)`, `null` outside an experiment); both plugins encode it in `encodeExperience`. The plugins keep the native `Experience` objects in a cache keyed by id, so `Experiences.track*` calls made from Dart still send the test version (`tv`).
 
 Both plugins call native methods only present in the native SDKs' CDP branches (`setIdentity`, `trackConsent`, `resetUser`, `getServerSegments`, …); bump the two versions above once those releases are published. To compile the plugins against a local checkout, point `android/build.gradle` at the SDK's AAR (`implementation files(...)` plus its POM dependencies) and add `pod 'MarfeelSDK-iOS', :path => ...` to `example/ios/Podfile`, then revert.
 

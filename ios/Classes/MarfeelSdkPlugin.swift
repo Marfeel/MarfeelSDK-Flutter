@@ -672,6 +672,7 @@ public class MarfeelSdkPlugin: NSObject, FlutterPlugin {
             "filters": e.filters?.map { ["key": $0.key, "operator": $0.`operator`.key, "values": $0.values] as [String: Any] },
             "rawJson": e.rawJson,
             "resolvedContent": e.resolvedContent,
+            "experimentation": e.experimentation.map { ["isControl": $0.isControl, "name": $0.name] as [String: Any] },
         ]
     }
 }

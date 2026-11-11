@@ -1,3 +1,10 @@
+## 0.2.4
+
+- Test groups can take their variant from a user var your app sets, when the group is configured that way in Experience Manager. Set the var with `CompassTracking.setUserVar` before calling `Experiences.fetchExperiences`. A reader whose value is missing or not mapped is out of the test: no experience from the group is returned and no variant is recorded, unless the group has a fallback variant.
+- iOS: the minimum deployment target is now 15.0 (was 13.0), required by `MarfeelSDK-iOS` 2.19.1.
+- Android: bumped `com.marfeel.compass:views` to `1.19.1`.
+- iOS: bumped `MarfeelSDK-iOS` to `~> 2.19.1`.
+
 ## 0.2.3
 
 - Experiments are now evaluated on the device like in the web SDK: losing variants are dropped and the control arm is returned by `Experiences.fetchExperiences`, marked through the new `Experience.experimentation` (`Experimentation(isControl, name)`, `null` outside an experiment). Check `isControl` before rendering: for the control arm keep your own module and still call the tracking methods.

@@ -1,9 +1,9 @@
 PODS:
   - Flutter (1.0.0)
-  - marfeel_sdk (0.2.3):
+  - marfeel_sdk (0.2.4):
     - Flutter
-    - MarfeelSDK-iOS (~> 2.19.0)
-  - MarfeelSDK-iOS (2.19.0)
+    - MarfeelSDK-iOS (~> 2.19.1)
+  - MarfeelSDK-iOS (2.19.1)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
@@ -21,8 +21,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  marfeel_sdk: 14c2b186e5efd7e82fb9c5db1258ae0fe96aaceb
-  MarfeelSDK-iOS: 29857b3512a7ed25412ec75703440d7e8a738c29
+  marfeel_sdk: 33a3ab1b2089e29201fcc180d08f4304851a070a
+  MarfeelSDK-iOS: 0e92bab942a3ccb8fd73c557f98207015017f58e
 
 PODFILE CHECKSUM: 7d36b9cd2a5e068dddb67fd7ca5fefad4794720b
 

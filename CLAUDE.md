@@ -41,8 +41,8 @@ The plugin uses Flutter's **MethodChannel** (`com.marfeel.sdk/compass`) for Dart
 - **iOS** (`ios/Classes/MarfeelSdkPlugin.swift`) — Swift plugin mapping method channel calls to `CompassTracker`/`CompassTrackerMultimedia`.
 
 ### Native SDK dependencies
-- Android: `com.marfeel.compass:views:1.19.0` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
-- iOS: `MarfeelSDK-iOS ~> 2.19.0` (CocoaPods)
+- Android: `com.marfeel.compass:views:1.19.1` (from `https://repositories.mrf.io/nexus/repository/mvn-marfeel-public/`)
+- iOS: `MarfeelSDK-iOS ~> 2.19.1` (CocoaPods)
 
 Experiments are evaluated by the native SDKs (Android ≥ 1.19.0, iOS ≥ 2.19.0). The control arm of an experiment is returned by `Experiences.fetchExperiences` like any other experience, marked with `experimentation` (`Experimentation(isControl, name)`, `null` outside an experiment); both plugins encode it in `encodeExperience`. The plugins keep the native `Experience` objects in a cache keyed by id, so `Experiences.track*` calls made from Dart still send the test version (`tv`).
 
@@ -56,4 +56,4 @@ Tests use `flutter_test` with mock method channel handlers (`TestDefaultBinaryMe
 
 - Flutter ≥ 3.22.0, Dart SDK ≥ 3.4.0
 - Android: minSdk 23, compileSdk 34, Java/Kotlin 17
-- iOS: 13.0+, Swift 5.0
+- iOS: 15.0+, Swift 5.0

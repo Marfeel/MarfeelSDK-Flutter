@@ -7,7 +7,7 @@ Flutter plugin for the [Marfeel Compass](https://www.marfeel.com) analytics SDK.
 | Platform | Minimum version |
 |----------|----------------|
 | Android  | API 23 (6.0)   |
-| iOS      | 13.0           |
+| iOS      | 15.0           |
 | Flutter  | 3.22.0         |
 | Dart     | 3.4.0          |
 
@@ -15,7 +15,7 @@ Flutter plugin for the [Marfeel Compass](https://www.marfeel.com) analytics SDK.
 
 ```yaml
 dependencies:
-  marfeel_sdk: ^0.2.3
+  marfeel_sdk: ^0.2.4
 ```
 
 ### Android setup
